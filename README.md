@@ -42,7 +42,7 @@ module "claimcheck" {
 
 ### Prerequisites
 
-You must be logged in AWS as an administrator (or appropriate user) on your
+You must be logged in AWS as an administrator (or appropriately permissioned user) on your
 terminal before running commands.
 
 Required software and the versions used for testing.
@@ -63,6 +63,36 @@ go test
 Successful test
 
 ```bash
+Waiting for SNS -> SQS subscription to become active...
+SNS -> SQS subscription is active after 0s
+Sleep 10s for the S3->SNS TestEvent to propagate to SQS
+
+(purging queues with 10s sleep)
+
+TESTING E2E
+--------------------
+S3 PutObject: "99bdc8d22a271436de6ba5e3003bdf80"
+Sleep 10s for messages to propogate to SQS
+SQS ReceiveMessage: a3fe6b47-3036-4b9e-bedc-3b0907ef1cb2
+S3 GetObject: "99bdc8d22a271436de6ba5e3003bdf80"
+
+buckets: claimcheck-s3-31ec9362 claimcheck-s3-31ec9362
+keys: d84dbb3d-e212-4654-b9ca-1fac3af5ddc6 d84dbb3d-e212-4654-b9ca-1fac3af5ddc6
+MD5sums: 105e1100cfe112808970758d9c1629ba 105e1100cfe112808970758d9c1629ba
+
+
+(purging queues with 10s sleep)
+
+TESTING DLQ
+--------------------
+SNS Publish: 552bc6d2-a128-5cea-8fc8-a6be5c84039f
+SQS Retrieve: 8b9728e3-c432-4657-9619-b74c5c3814f4
+Sleep 10s for visibility timeout to expire
+DLQ Retrieve: 8b9728e3-c432-4657-9619-b74c5c3814f4
+DLQ messages: dlq-test-df00c89d-c9b2-46ba-9ba4-00bcc7077556 dlq-test-df00c89d-c9b2-46ba-9ba4-00bcc7077556
+
+[...]
+
 PASS
 ok      kata-claimcheck/tests   346.519s
 ```
@@ -100,7 +130,7 @@ ok      kata-claimcheck/tests   346.519s
    1. Send event to SNS
    2. Retrieve message but do not delete
    3. Retrieve again to force redrive to dead letter queue
-   4. Retrive event from dead letter queue
+   4. Retrieve event from dead letter queue
    5. Verify sent and recieved messages match
 
 ## Future Considerations
@@ -125,13 +155,17 @@ Observability
 
 Testing
 
-- Test harness could use ephemeral ec2 instances instead of the local machine or runner
+- More robust verification that resources exist and are configured (like SNS to SQS is active) vs. just sleeping for 20s
+- Test harness could use ephemeral compute or a runner instead of the local machine
 - Refactor large terratest function into more manageable functions
+- Look for other edge cases like race conditions for infra to propogate or async message delays
 
 ## Notes
 
 - I used vanilla terraform modules from the terraform registry purposely for ease of demonstration
 - I used CloudEvents in v1 when I controlled the event schema
+- Terratest is awesome! My code might be newb-ugly though 😜
+- Lots of weird depends_on, polling, and sleeping for edge cases around timing
 
 ## References
 

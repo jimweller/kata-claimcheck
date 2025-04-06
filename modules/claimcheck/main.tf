@@ -148,12 +148,15 @@ module "claimcheck_sns" {
   tags = merge(var.tags)
 }
 
+resource "random_id" "s3_suffix" {
+  byte_length = 4
+}
 
 module "claimcheck_s3" {
   source  = "terraform-aws-modules/s3-bucket/aws"
   version = "~> 4.6.0"
 
-  bucket = "${var.queue_name}-s3"
+  bucket = "${var.queue_name}-s3-${random_id.s3_suffix.hex}"
 
   force_destroy = true
 
@@ -177,5 +180,7 @@ resource "aws_s3_bucket_notification" "s3_to_sns" {
     topic_arn = module.claimcheck_sns.topic_arn
     events    = ["s3:ObjectCreated:Put"]
   }
+
+  depends_on = [module.claimcheck_sns, module.claimcheck_sqs]
 
 }
