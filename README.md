@@ -181,3 +181,4 @@ Testing
   - [AWS module](https://pkg.go.dev/github.com/gruntwork-io/terratest@v0.48.2/modules/aws)
 - [CloudEvents SDK for Go](https://github.com/cloudevents/sdk-go)
 - [AWS SDK for Go](https://pkg.go.dev/github.com/aws/aws-sdk-go-v2)
+- [Kata v1 Affable Achitect](https://github.com/jimweller/kata-claimcheck/tree/v1)
