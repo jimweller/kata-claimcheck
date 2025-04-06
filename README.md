@@ -79,7 +79,7 @@ ok      kata-claimcheck/tests   346.519s
 - The module should include the KMS key for encryption
 - The excercise does not require me to include an application. The module is tested with terratest.
 - Multiple SDLC environments will be handled outside of the module with something like terragrunt or SDLC progression in a runner (github actions, spacelift, etc.). This can be simulated with the terratest by changing AWS accounts in the terminal.
-- Terraform state management is handled by the consumer or the runner
+- Terraform state management is handled by the app team, terragrunt or a runner
 - OpenTofu is the preferred IaC tool
 - CloudEvents will be used for message structure
 - Dead letter queue should be included by default
