@@ -170,6 +170,7 @@ Testing
 
 ## References
 
+- [Claim Check Pattern](https://www.enterpriseintegrationpatterns.com/patterns/messaging/StoreInLibrary.html)
 - [Terraform Modules](https://registry.terraform.io/namespaces/terraform-aws-modules)
   - [SQS](https://registry.terraform.io/modules/terraform-aws-modules/sqs/aws/latest)
   - [SNS](https://registry.terraform.io/modules/terraform-aws-modules/sns/aws/latest)
