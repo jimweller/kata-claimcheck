@@ -118,6 +118,7 @@ ok      kata-claimcheck/tests   346.519s
 - Terraform state management is handled outside the module by the app team, by terragrunt or by a runner
 - OpenTofu is the preferred IaC tool
 - Dead letter queue should be included by default
+- SNS is used for future proofing like for fanout. SNS -> SQS is free.
 
 ## Tests
 
