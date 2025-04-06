@@ -111,14 +111,14 @@ These are some future considerations.
 - Partitioned encryption model, like per user/customer, separate S3 & SQS keys
 - More regulatory compliant encryptiong model, like customer provided keys or HSM
 - Compute service to generate presigned s3 urls or gate s3 with an IDP instead of direct access to S3 with AWS IAM
-- CloudWatch logging
-- CloudWatch metrics to observability tool (datadog, honeycomb, etc)
+- CloudWatch logging to obervability tool (datadog, honeycomb, etc)
+- CloudWatch metrics to observability tool
 - OpenTelemetry to observability tool, including trace/span IDs that follow CloudEvents
-- Deconstruct terratest function into more manageable functions
+- Refactor large terratest function into more manageable functions
 
 ## Notes
 
-- I used vanilla terraform modules from the registry purposely for ease of demonstration
+- I used vanilla terraform modules from the terraform registry purposely for ease of demonstration
 
 ## References
 
