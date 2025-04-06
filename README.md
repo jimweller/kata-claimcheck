@@ -75,13 +75,13 @@ ok      kata-claimcheck/tests   346.519s
 
 ## Assumptions
 
-- The app team will upload the payload and send the message. It is a possibility the expectation is to upload a complete package including metadata and payload that needs to be split. In which, case there would be some event and processing steps necessary.
+- The app team will upload the payload and send the message. It is a possibility the expectation is to upload a complete package including metadata and payload that needs to be split. In which, case there would be some event emitted from S3 and processing to split the meatadata from the payload.
 - The module should include the KMS key for encryption
 - The excercise does not require me to include an application. The module is tested with terratest.
 - Multiple SDLC environments will be handled outside of the module with something like terragrunt or SDLC progression in a runner (github actions, spacelift, etc.). This can be simulated with the terratest by changing AWS accounts in the terminal.
 - Terraform state management is handled by the consumer or the runner
 - OpenTofu is the preferred IaC tool
-- CloudEvents will be used for message
+- CloudEvents will be used for message structure
 - Dead letter queue should be included by default
 
 ## Tests
@@ -106,8 +106,8 @@ These are some future considerations.
 
 - Network perimeter infrastructure like waf, apigw, vpc links
 - Testing to use ephemeral ec2 instances instead of the local machine or runner
-- IAM permissions to access resources (instance profile, IRSA, PodIdentity etc.)
-- AWS Glue schema registry for CloudEvent structure
+- IAM constructs to access resources (roles, policies, instance profile, IRSA, PodIdentity etc.)
+- AWS Glue schema registry for CloudEvent structure definition and validation
 - Partitioned encryption model, like per user/customer, separate S3 & SQS keys
 - More regulatory compliant encryptiong model, like customer provided keys or HSM
 - Compute service to generate presigned s3 urls or gate s3 with an IDP instead of direct access to S3 with AWS IAM
