@@ -1,4 +1,4 @@
-# 🥋Kata: Claimcheck Pattern Terraform Module
+# 🥋Kata: Claim Check Pattern Terraform Module
 
 ## Overview
 
