@@ -75,7 +75,7 @@ ok      kata-claimcheck/tests   346.519s
 
 ## Assumptions
 
-- The app team will upload the payload and send the message. It is a possibility the expectation is to upload a complete package including metadata and payload that needs to be split. In which, case there would be some event emitted from S3 and processing to split the meatadata from the payload.
+- The app team will upload the payload and send the message. It is a possibility the expectation is to upload a complete package including metadata and payload that needs to be split. In which, case there would be some event emitted from S3 and processing to split the meatadata from the payload. For example the singe bundle could be a zip file with json and binary files. Or it could be a json with the payload base64 encoded.
 - The module should include the KMS key for encryption
 - The excercise does not require me to include an application. The module is tested with terratest.
 - Multiple SDLC environments will be handled outside of the module with something like terragrunt or SDLC progression in a runner (github actions, spacelift, etc.). This can be simulated with the terratest by changing AWS accounts in the terminal.
