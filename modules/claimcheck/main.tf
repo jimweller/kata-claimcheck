@@ -121,6 +121,21 @@ module "claimcheck_sns" {
         values   = [module.claimcheck_sqs.queue_arn]
       }]
     }
+
+    s3 = {
+      sid     = "AllowS3"
+      actions = ["sns:Publish"]
+      principals = [{
+        type        = "Service"
+        identifiers = ["s3.amazonaws.com"]
+      }]
+      conditions = [{
+        test     = "ArnLike"
+        variable = "aws:SourceArn"
+        values   = [module.claimcheck_s3.s3_bucket_arn]
+      }]
+    }
+
   }
 
   subscriptions = {
@@ -163,28 +178,4 @@ resource "aws_s3_bucket_notification" "s3_to_sns" {
     events    = ["s3:ObjectCreated:Put"]
   }
 
-  depends_on = [aws_s3_bucket_policy.s3_publish_to_sns]
-}
-
-
-resource "aws_s3_bucket_policy" "s3_publish_to_sns" {
-  bucket = module.claimcheck_s3.s3_bucket_id
-
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Sid       = "AllowS3ToPublishToSNS",
-        Effect    = "Allow",
-        Principal = { Service = "s3.amazonaws.com" },
-        Action    = "sns:Publish",
-        Resource  = module.claimcheck_sns.topic_arn,
-        Condition = {
-          ArnLike = {
-            "aws:SourceArn" = module.claimcheck_s3.s3_bucket_arn
-          }
-        }
-      }
-    ]
-  })
 }

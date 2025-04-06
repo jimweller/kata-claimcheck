@@ -7,9 +7,21 @@ variable "queue_name" {
   description = "The name of the queue to create"
 }
 
+variable "sdlc_env" {
+  type        = string
+  description = "The SDLC environment, sandbox, dev, test, staging, prod"
+}
+
+
 # OPTIONAL PARAMETERS
 # These variables have default values that can be optionally modified.
 # ---------------------------------------------------------------------------------------------------------------------
+
+variable "sdlc_end" {
+  type        = string
+  description = "The SDLC environment, sandbox, dev, test, staging, prod"
+  default = "dev"
+}
 
 variable "max_receive_count" {
   type        = number
