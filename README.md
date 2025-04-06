@@ -177,6 +177,7 @@ Testing
   - [KMS](https://registry.terraform.io/modules/terraform-aws-modules/kms/aws/latest)
   - [S3](https://registry.terraform.io/modules/terraform-aws-modules/s3-bucket/aws/latest)
 - [Terratest](https://terratest.gruntwork.io/)
+  - [Terraform module](https://pkg.go.dev/github.com/gruntwork-io/terratest@v0.48.2/modules/terraform)
   - [AWS module](https://pkg.go.dev/github.com/gruntwork-io/terratest@v0.48.2/modules/aws)
 - [CloudEvents SDK for Go](https://github.com/cloudevents/sdk-go)
 - [AWS SDK for Go](https://pkg.go.dev/github.com/aws/aws-sdk-go-v2)
