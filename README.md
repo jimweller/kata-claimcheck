@@ -156,7 +156,7 @@ Observability
 
 Testing
 
-- More robust verification that resources exist and are configured (like SNS to SQS is active) vs. just sleeping for 20s
+- More robust verification that resources exist and are configured vs. just sleeping for 20s and firing e2e tests
 - Test harness could use ephemeral compute or a runner instead of the local machine
 - Refactor large terratest function into more manageable functions
 - Look for other edge cases like race conditions for infra to propogate or async message delays
