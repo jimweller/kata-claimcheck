@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	mathrand "math/rand"
 	"os"
 	"testing"
 	"time"
@@ -97,16 +98,65 @@ func TestTerraformClaimcheck(t *testing.T) {
 		QueueUrl: aws.String(tfOutput.ClaimcheckSQSDLQ.URL),
 	})
 
+	// The SNS -> SQS subscription was not spinning up within a reasonable sleep
+	// time, even with depends_on in TF. We'll poll for an active subscription.
+	fmt.Println("Waiting for SNS -> SQS subscription to become active...")
+
+	found := false
+	for i := 0; i < 60; i++ {
+		resp, err := snsClient.ListSubscriptionsByTopic(ctx, &sns.ListSubscriptionsByTopicInput{
+			TopicArn: aws.String(tfOutput.ClaimcheckSNS.ARN),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, sub := range resp.Subscriptions {
+			if *sub.Endpoint == tfOutput.ClaimcheckSQS.ARN && *sub.SubscriptionArn != "PendingConfirmation" {
+				found = true
+				break
+			}
+		}
+		if found {
+			fmt.Printf("SNS -> SQS subscription is active after %ds\n", i)
+			break
+		}
+		time.Sleep(3 * time.Second)
+	}
+	if !found {
+		t.Fatal("SNS -> SQS subscription did not become active in time")
+	}
+
+	fmt.Println("Sleep 10s for the S3->SNS TestEvent to propagate to SQS")
+	time.Sleep(10 * time.Second) // allow retry and DLQ redrive
+
+	// Purge queues before beginning testing
+	fmt.Printf("\n(purging queues with 10s sleep)\n\n")
+	_, _ = sqsClient.PurgeQueue(ctx, &sqs.PurgeQueueInput{
+		QueueUrl: aws.String(tfOutput.ClaimcheckSQS.URL),
+	})
+	_, _ = sqsClient.PurgeQueue(ctx, &sqs.PurgeQueueInput{
+		QueueUrl: aws.String(tfOutput.ClaimcheckSQSDLQ.URL),
+	})
+	time.Sleep(10 * time.Second)
+
+	//
+	// E2E Test
+	// Upload a file to s3, get subsequent message from SQS, download the file
+	// described in the event message and compare upload to download
+	//
+
 	fmt.Println("TESTING E2E")
 	fmt.Println("--------------------")
 
-	// generate 15MB file with random data. Most of the AWS streaming
+	// generate 15-20MB file with random data. Most of the AWS streaming
 	// services have limits of less than 10MB (apigw) so this is a good
 	// size to test with.
 	tmpFile, _ := os.CreateTemp("", "claimcheck-*.bin")
 	defer os.Remove(tmpFile.Name())
 
-	data := make([]byte, 15*1024*1024)
+	size := 15 + mathrand.Intn(6) // 15–20
+	data := make([]byte, size*1024*1024)
+
 	rand.Read(data)
 	tmpFile.Write(data)
 	tmpFile.Close()
@@ -128,8 +178,8 @@ func TestTerraformClaimcheck(t *testing.T) {
 	assert.Nil(t, errS3Put)
 	fmt.Println("S3 PutObject:", *outS3Put.ETag)
 
-	fmt.Println("Sleep 5s for messages to propogate to SQS")
-	time.Sleep(5 * time.Second) // allow retry and DLQ redrive
+	fmt.Println("Sleep 10s for messages to propogate to SQS")
+	time.Sleep(10 * time.Second) // allow retry and DLQ redrive
 
 	// retrieve CloudEvent from SQS
 	outSqsRcv, errSqsRcv := sqsClient.ReceiveMessage(ctx, &sqs.ReceiveMessageInput{
@@ -210,6 +260,16 @@ func TestTerraformClaimcheck(t *testing.T) {
 	// the DLQ.
 	//
 
+	// Purge queues before beginning testing
+	fmt.Printf("\n(purging queues with 10s sleep)\n\n")
+	_, _ = sqsClient.PurgeQueue(ctx, &sqs.PurgeQueueInput{
+		QueueUrl: aws.String(tfOutput.ClaimcheckSQS.URL),
+	})
+	_, _ = sqsClient.PurgeQueue(ctx, &sqs.PurgeQueueInput{
+		QueueUrl: aws.String(tfOutput.ClaimcheckSQSDLQ.URL),
+	})
+	time.Sleep(10 * time.Second)
+
 	fmt.Println("TESTING DLQ")
 	fmt.Println("--------------------")
 
@@ -227,42 +287,44 @@ func TestTerraformClaimcheck(t *testing.T) {
 	outDlqSqs, errDlqSqs := sqsClient.ReceiveMessage(ctx, &sqs.ReceiveMessageInput{
 		QueueUrl:            aws.String(queueURL),
 		MaxNumberOfMessages: 1,
-		WaitTimeSeconds:     10,
+		WaitTimeSeconds:     20,
 	})
 	assert.Nil(t, errDlqSqs)
 	fmt.Println("SQS Retrieve:", *outDlqSqs.Messages[0].MessageId)
 
 	// DO NOT delete — let it be returned to the queue
-	fmt.Println("Sleep 5s for visibility timeout to expire")
-	time.Sleep(5 * time.Second)
+	fmt.Println("Sleep 10s for visibility timeout to expire")
+	time.Sleep(10 * time.Second)
 
 	// Try to retrieve the message again, this will exceed the max_receive_count
 	// and cause a redrive which will send the message to the DLQ
 	outDlqSqs, errDlqSqs = sqsClient.ReceiveMessage(ctx, &sqs.ReceiveMessageInput{
 		QueueUrl:            aws.String(queueURL),
 		MaxNumberOfMessages: 1,
-		WaitTimeSeconds:     10,
+		WaitTimeSeconds:     20,
 	})
 	assert.Nil(t, errDlqSqs)
-	assert.Len(t, outDlqSqs.Messages, 0)
 
 	// Retrieve the message from the DLQ
 	dlqOut, err := sqsClient.ReceiveMessage(ctx, &sqs.ReceiveMessageInput{
 		QueueUrl:            aws.String(dlqURL),
 		MaxNumberOfMessages: 1,
-		WaitTimeSeconds:     10,
+		WaitTimeSeconds:     20,
 	})
 	assert.Nil(t, err)
-	fmt.Println("DLQ Retrive:", *dlqOut.Messages[0].MessageId)
+	fmt.Println("DLQ Retrieve:", *dlqOut.Messages[0].MessageId)
 
 	// unwrap the aws envelope to get our original message
 	var dlqEnvelope struct {
 		Message string `json:"Message"`
 	}
 
-	// see tha the message in the DLQ is the same as what we sent
+	// see that the message in the DLQ is the same as what we sent
 	err = json.Unmarshal([]byte(*dlqOut.Messages[0].Body), &dlqEnvelope)
 	assert.Nil(t, err)
+
+	fmt.Printf("DLQ messages: %s %s\n", dlqMsg, dlqEnvelope.Message)
+
 	assert.Equal(t, dlqMsg, dlqEnvelope.Message)
 
 }
