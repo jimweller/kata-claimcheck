@@ -142,7 +142,7 @@ Security
 
 - IAM constructs for the app team to access resources (roles, policies, instance profile, IRSA, PodIdentity etc.)
 - Partitioned encryption model, like per user/customer, separate S3 & SQS keys
-- More regulatory compliant encryptiong model, like customer provided keys or HSM
+- More regulatory compliant encryption model, like customer provided keys or HSM
 
 Infrastructure
 
