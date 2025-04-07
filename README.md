@@ -45,7 +45,7 @@ module "claimcheck" {
 You must be logged in AWS as an administrator (or appropriately permissioned user) on your
 terminal before running commands.
 
-Required software and the versions used for testing.
+Required software (and the versions used for testing).
 
 - OpenTofu (1.9.0)
 - Go (1.24.2)
@@ -101,20 +101,21 @@ ok      kata-claimcheck/tests   346.519s
 
 - Payloads are sensitive data (PII/HIPAA)
 - Identity provider is already implemented by the app team
-- Requestor does not get a response
 - Processing payloads can take several minutes
 
 ## Requirements
 
 - Encryption in flight and at rest because data is sensitive (PII/HIPAA)
 - Payloads are of arbitrary size
+- Requestor does not require a response
+- Solution is reusable and will have mutliple instances deployed in both SDLC and by different teams
 
 ## Assumptions
 
-- The excercise does not require me to include an application. The module is tested with terratest.
+- _The excercise does not require me to include an application. The module is tested with terratest._
 - The app team handles separating the metadata from the payload
-- The module should include the KMS key for encryption
-- Multiple SDLC environments will be handled outside of the module (terragrunt, spacelift, etc.)
+- The module should include the KMS key for encryption, not have it be external to the module
+- SDLC environments will be handled outside of the module (terragrunt, spacelift, etc.)
 - Terraform state management is handled outside the module by the app team, by terragrunt or by a runner
 - OpenTofu is the preferred IaC tool
 - Dead letter queue should be included by default
@@ -147,12 +148,21 @@ Security
 Infrastructure
 
 - Compute service to generate presigned s3 urls or gate s3 with an IDP instead of direct access to S3 with AWS IAM
-- Network perimeter infrastructure like waf, apigw, vpc links
+- Network perimeter infrastructure like waf, NSGs, apigw, vpc links, etc.
+- IaC drift detection
 
 Observability
 
 - CloudWatch logging to obervability tool (datadog, honeycomb, etc)
 - CloudWatch metrics to observability tool
+- CloudTrail audit logging to observability tool
+- Alerting in observability tool for SNS failures and DLQ thresholds
+
+Storage
+
+- Object lifecycle policy for retention
+- Partition tenant security on boundaries like object ACL, folders etc.
+- S3 delete protection like force_delete or mfa delete
 
 Testing
 
@@ -160,13 +170,14 @@ Testing
 - Test harness could use ephemeral compute or a runner instead of the local machine
 - Refactor large terratest function into more manageable functions
 - Look for other edge cases like race conditions for infra to propogate or async message delays
+- Static analysis for formatting, linting, tfsec, etc.
 
 ## Notes
 
 - I used vanilla terraform modules from the terraform registry purposely for ease of demonstration
 - I used CloudEvents in v1 when I controlled the event schema
+- Lots of added depends_on, polling, and sleeping for edge cases around timing
 - Terratest is awesome! My code might be newb-ugly though 😜
-- Lots of weird depends_on, polling, and sleeping for edge cases around timing
 
 ## References
 

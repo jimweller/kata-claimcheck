@@ -8,7 +8,7 @@ module "claimcheck_kms" {
   description = "${var.queue_name}-kms"
 
   // Sns needs to use the key to push to sqs. Sqs needs to use the key to push
-  // to the DLQ, note SQS does not have an aws:SourceArn to use in a conditon
+  // to the DLQ. Note: SQS does not have an aws:SourceArn to use in a conditon
   key_statements = [
     {
       sid = "AllowSNSServiceToUseKey"

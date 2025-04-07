@@ -1,6 +1,7 @@
 // Simple instance of the claimcheck module
 // to use with terratest. Note the aggressive
-// recieve count and visibility timeout.
+// recieve count and visibility timeout for 
+// testing DLQ.
 
 module "claimcheck" {
   source     = "../modules/claimcheck"
@@ -31,7 +32,6 @@ locals {
 output "claimcheck" {
   value = module.claimcheck
 }
-
 
 
 

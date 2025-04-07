@@ -2,9 +2,8 @@
 Terratest for claimcheck
 
 Test package for a terraform stack that implements a claimcheck pattern using
-AWS services. This test uploads a file to S3, publishes a CloudEvent to SNS,
-and verifies the message is received in SQS. It also tests the DLQ
-functionality by sending a message that will fail processing.
+AWS services. E2E test of S3 upload > (SNS & SQS) -> S3 download. Also tests
+dead-letter-queue (DLQ) as SNS -> SQS -> DLQ.
 */
 package test
 
@@ -35,7 +34,8 @@ import (
 	uuid "github.com/google/uuid"
 )
 
-// ClaimCheckOutput mathces the output of the terraform stack for marshalling from JSON
+// ClaimCheckOutput struct that is the same as the output of the terraform stack
+// for marshalling from JSON
 type ClaimCheckOutput struct {
 	ClaimcheckKMS struct {
 		ARN string `json:"arn"`
@@ -81,16 +81,21 @@ func TestTerraformClaimcheck(t *testing.T) {
 	var tfOutput ClaimCheckOutput
 	json.Unmarshal([]byte(tfOutputJson), &tfOutput)
 
+	// config values
 	region := cfg.Region
 	uploadBucket := tfOutput.ClaimcheckS3.Name
 	queueURL := tfOutput.ClaimcheckSQS.URL
 	topicARN := tfOutput.ClaimcheckSNS.ARN
 	dlqURL := tfOutput.ClaimcheckSQSDLQ.URL
 
+	// clients for AWS services
 	s3Client := tt_aws.NewS3Client(t, region)
 	sqsClient := tt_aws.NewSqsClient(t, region)
 	snsClient := tt_aws.NewSnsClient(t, region)
 
+	// purge queues at the end. When developing locally
+	// comment out tf destroy for faster cycle time between
+	// test runs.
 	defer sqsClient.PurgeQueue(ctx, &sqs.PurgeQueueInput{
 		QueueUrl: aws.String(tfOutput.ClaimcheckSQS.URL),
 	})
@@ -126,6 +131,7 @@ func TestTerraformClaimcheck(t *testing.T) {
 		t.Fatal("SNS -> SQS subscription did not become active in time")
 	}
 
+	// wait for AWS' built in TestEvent
 	fmt.Println("Sleep 10s for the S3->SNS TestEvent to propagate to SQS")
 	time.Sleep(10 * time.Second) // allow retry and DLQ redrive
 
@@ -150,7 +156,7 @@ func TestTerraformClaimcheck(t *testing.T) {
 
 	// generate 15-20MB file with random data. Most of the AWS streaming
 	// services have limits of less than 10MB (apigw) so this is a good
-	// size to test with.
+	// size to test with for the "arbitrary size" requirement.
 	tmpFile, _ := os.CreateTemp("", "claimcheck-*.bin")
 	defer os.Remove(tmpFile.Name())
 
@@ -169,6 +175,7 @@ func TestTerraformClaimcheck(t *testing.T) {
 
 	f, _ := os.Open(tmpFile.Name())
 
+	// upload to s3
 	outS3Put, errS3Put := s3Client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(uploadBucket),
 		Key:    aws.String(uploadKey),
@@ -181,7 +188,7 @@ func TestTerraformClaimcheck(t *testing.T) {
 	fmt.Println("Sleep 10s for messages to propogate to SQS")
 	time.Sleep(10 * time.Second) // allow retry and DLQ redrive
 
-	// retrieve CloudEvent from SQS
+	// retrieve message from SQS
 	outSqsRcv, errSqsRcv := sqsClient.ReceiveMessage(ctx, &sqs.ReceiveMessageInput{
 		QueueUrl:            &queueURL,
 		MaxNumberOfMessages: 1,
@@ -203,8 +210,7 @@ func TestTerraformClaimcheck(t *testing.T) {
 	err := json.Unmarshal([]byte(*outSqsRcv.Messages[0].Body), &wrapper)
 	assert.Nil(t, err)
 
-	// Compare what we sent to what we received
-
+	// struct to match AWS' S3 payload
 	var payload struct {
 		Records []struct {
 			S3 struct {
@@ -228,7 +234,6 @@ func TestTerraformClaimcheck(t *testing.T) {
 	assert.Equal(t, downloadKey, uploadKey)
 
 	// use the facts in the message to download the file from S3
-
 	outS3Get, errS3Get := s3Client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(downloadBucket),
 		Key:    aws.String(downloadKey),
@@ -245,19 +250,20 @@ func TestTerraformClaimcheck(t *testing.T) {
 
 	assert.Equal(t, uploadMD5, downloadMD5)
 
+	// test that upload and download facts match
 	fmt.Printf("\nbuckets: %s %s\n", uploadBucket, downloadBucket)
 	fmt.Printf("keys: %s %s\n", uploadKey, downloadKey)
 	fmt.Printf("MD5sums: %s %s\n\n", uploadMD5, downloadMD5)
 
 	//
-	// DLQ test
-	// This test will send a message to the SNS topic that will fail processing
-	// and be sent to the DLQ. The message will be a simple string
-	// that will be sent to the SQS queue. The SQS queue has a max_receive_count
-	// of 1 and a visibility_timeout_seconds of 1. So, we retrieve, don't delete,
-	// and wait for the message to be sent back to the queue. The second retreive
-	// exceeds the max_receive_count, causes a redrive, and the message is sent to
-	// the DLQ.
+	// DLQ test This test will send a message to the SNS topic that will fail
+	// processing and be sent to the DLQ. The message will be a simple string that
+	// will be sent to the SQS queue. The SQS queue has a max_receive_count of 1
+	// and a visibility_timeout_seconds of 1 in the test.tf. So, we retrieve,
+	// don't delete, and wait for the message to be sent back to the queue. The
+	// second retreive exceeds the max_receive_count, causes a redrive, and the
+	// message is sent to the DLQ. We retrieve the message from the DLQ and
+	// compare it to the original message.
 	//
 
 	// Purge queues before beginning testing
@@ -292,7 +298,7 @@ func TestTerraformClaimcheck(t *testing.T) {
 	assert.Nil(t, errDlqSqs)
 	fmt.Println("SQS Retrieve:", *outDlqSqs.Messages[0].MessageId)
 
-	// DO NOT delete — let it be returned to the queue
+	// DO NOT delete — let it be returned to the queue by visibity timeout
 	fmt.Println("Sleep 10s for visibility timeout to expire")
 	time.Sleep(10 * time.Second)
 
@@ -304,6 +310,9 @@ func TestTerraformClaimcheck(t *testing.T) {
 		WaitTimeSeconds:     20,
 	})
 	assert.Nil(t, errDlqSqs)
+	assert.Len(t, outDlqSqs.Messages, 0)
+
+	time.Sleep(5 * time.Second)
 
 	// Retrieve the message from the DLQ
 	dlqOut, err := sqsClient.ReceiveMessage(ctx, &sqs.ReceiveMessageInput{
