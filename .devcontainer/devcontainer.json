@@ -1,0 +1,15 @@
+{
+  "name": "Ubuntu Base DevContainer",
+  "image": "mcr.microsoft.com/devcontainers/base:jammy",
+  "features": {},
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-docker",
+        "hashicorp.terraform",
+        "eamodio.gitlens"
+      ]
+    }
+  },
+  "remoteUser": "vscode"
+}
